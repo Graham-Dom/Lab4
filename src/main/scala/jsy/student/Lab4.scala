@@ -38,25 +38,35 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   /* Lists */
   
   def compressRec[A](l: List[A]): List[A] = l match {
-    case Nil | _ :: Nil => ???
-    case h1 :: (t1 @ (h2 :: _)) => ???
+    case Nil | _ :: Nil => Nil
+    case h1 :: (t1 @ (h2 :: _)) => h1 :: compressRec(t1.dropWhile(_ == h1))
   }
   
   def compressFold[A](l: List[A]): List[A] = l.foldRight(Nil: List[A]){
-    (h, acc) => ???
+    (h, acc) => acc match {
+      case Nil => h :: Nil
+      case h1 :: _ => {
+        if (h == h1) {  acc; }
+        else { h :: acc; }
+      }
+    }
   }
   
   def mapFirst[A](l: List[A])(f: A => Option[A]): List[A] = l match {
-    case Nil => ???
-    case h :: t => ???
+    case Nil => l
+    case h :: t =>  f(h) match {
+      case None => h :: mapFirst(t)(f)
+      case Some(a) =>   a :: t
+    }
   }
   
   /* Trees */
 
+  // what is z?  just fold left down left side of tree?
   def foldLeft[A](t: Tree)(z: A)(f: (A, Int) => A): A = {
     def loop(acc: A, t: Tree): A = t match {
-      case Empty => ???
-      case Node(l, d, r) => ???
+      case Empty => acc
+      case Node(l, d, r) => loop(f(loop(acc, l), d), r)
     }
     loop(z, t)
   }
@@ -68,13 +78,18 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   // List.foldLeft method.
   def treeFromList(l: List[Int]): Tree =
     l.foldLeft(Empty: Tree){ (acc, i) => acc insert i }
-
+  
   def strictlyOrdered(t: Tree): Boolean = {
     val (b, _) = foldLeft(t)((true, None: Option[Int])){
-      ???
+      (acc, i) => acc match {
+        case (b1, None) =>  (b1, Some(i))
+        case (b1, Some(a)) => if (a < i) (b1, Some(a)) else (false, Some(a))
+      }
     }
     b
   }
+
+  // free variable capture
 
   /*** Rename bound variables in e ***/
 
@@ -129,32 +144,52 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
 
     e match {
       case Print(e1) => typeof(env, e1); TUndefined
-      case N(_) => ???
-      case B(_) => ???
-      case Undefined => ???
-      case S(_) => ???
-      case Var(x) => ???
+      case N(_) => TNumber
+      case B(_) => TBool
+      case Undefined => TUndefined
+      case S(_) => TString
+      case Var(x) => lookup(env, x)
       case Unary(Neg, e1) => typeof(env, e1) match {
         case TNumber => TNumber
         case tgot => err(tgot, e1)
       }
-      case Unary(Not, e1) =>
-        ???
-      case Binary(Plus, e1, e2) =>
-        ???
-      case Binary(Minus|Times|Div, e1, e2) => 
-        ???
-      case Binary(Eq|Ne, e1, e2) =>
-        ???
-      case Binary(Lt|Le|Gt|Ge, e1, e2) =>
-        ???
-      case Binary(And|Or, e1, e2) =>
-        ???
+      case Unary(Not, e1) => typeof(env, e1) match {
+        case TBool => TBool
+        case tgot => err(tgot, e1)
+      }
+      case Binary(Plus, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TString, TString) => TString
+        case (TNumber, TNumber) => TNumber
+        case (tgot, _) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e1)
+      }
+      case Binary(Minus|Times|Div, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TNumber, TNumber) => TNumber
+        case (tgot, _) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e1)
+      }
+      case Binary(Eq|Ne, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TString, TString) => TBool
+        case (TNumber, TNumber) => TBool
+        case (tgot, _) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e1)
+      }
+      case Binary(Lt|Le|Gt|Ge, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TString, TString) => TBool
+        case (TNumber, TNumber) => TBool
+        case (tgot, _) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e1)
+      }
+      case Binary(And|Or, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (TBool, TBool) => TBool
+        case (tgot, _) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e1)
+      }
       case Binary(Seq, e1, e2) =>
         ???
-      case If(e1, e2, e3) =>
-        ???
-
+      case If(e1, e2, e3) => (typeof(env, e1), typeof(env, e2), typeof(env, e3)) match {
+        //case (TBool, e2, e3) => typeof(env, e2) ==
+      }
       case Obj(fields) => ???
       case GetField(e1, f) => ???
 
@@ -202,13 +237,29 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     require(isValue(v2), s"inequalityVal: v2 ${v2} is not a value")
     require(bop == Lt || bop == Le || bop == Gt || bop == Ge)
     (v1, v2) match {
-      case _ => ??? // delete this line when done
+      /* DoInequalityString */
+      case (S(v1), S(v2)) => bop match {
+        case Gt => v1 > v2
+        case Ge => v1 >= v2
+        case Lt => v1 < v2
+        case Le => v1 <= v2
+      }
+      /* DoInequalityNumber1 and DoInequalityNumber2 */
+      case (N(v1), N(v2)) => bop match {
+        case Gt => v1 > v2
+        case Ge => v1 >= v2
+        case Lt => v1 < v2
+        case Le => v1 <= v2
+      }
     }
   }
 
   /* This should be the same code as from Lab 3 */
   def iterate(e0: Expr)(next: (Expr, Int) => Option[Expr]): Expr = {
-    def loop(e: Expr, n: Int): Expr = ???
+    def loop(e: Expr, n: Int): Expr = (next(e, n)) match {
+      case None => e
+      case Some(myFunctionName) => loop(myFunctionName, n+1)
+    }
     loop(e0, 0)
   }
 
@@ -218,11 +269,11 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case N(_) | B(_) | Undefined | S(_) => e
       case Print(e1) => Print(subst(e1))
         /***** Cases from Lab 3 */
-      case Unary(uop, e1) => ???
-      case Binary(bop, e1, e2) => ???
-      case If(e1, e2, e3) => ???
-      case Var(y) => ???
-      case Decl(mode, y, e1, e2) => ???
+      case Unary(uop, e1) => Unary(uop, subst(e1))
+      case Binary(bop, e1, e2) => Binary(bop, subst(e1), subst(e2))
+      case If(e1, e2, e3) => If(subst(e1), subst(e2), subst(e3))
+      case Var(y) => if (x == y) esub else e
+      case Decl(mode, y, e1, e2) => if (x == y) Decl(mode, x, subst(e1), e2) else Decl(mode, y, subst(e1), subst(e2))
         /***** Cases needing adapting from Lab 3 */
       case Function(p, params, tann, e1) =>
         ???
