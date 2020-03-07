@@ -99,31 +99,55 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case N(_) | B(_) | Undefined | S(_) => e
         case Print(e1) => Print(ren(env, e1))
 
-        case Unary(uop, e1) => ???
-        case Binary(bop, e1, e2) => ???
-        case If(e1, e2, e3) => ???
-
-        case Var(y) => ???
-
-        case Decl(mode, y, e1, e2) =>
-          val yp = fresh(y)
-          ???
-
-        case Function(p, params, tann, e1) => {
-          val (pp, envp): (Option[String], Map[String,String]) = p match {
-            case None => ???
-            case Some(x) => ???
-          }
-          val (paramsp, envpp) = params.foldRight( (Nil: List[(String,MTyp)], envp) ) {
-            ???
-          }
-          ???
+        case Unary(uop, e1) => Unary(uop, ren(env, e1))
+        case Binary(bop, e1, e2) => Binary(bop, ren(env, e1), ren(env, e2))
+        case If(e1, e2, e3) => If(ren(env, e1), ren(env, e2), ren(env, e3))
+        // base case rename
+        // get val from env which was redeclared and is fresh and return if it's there.
+        // if not in env, recurse?  or leave alone?
+        case Var(y) => {
+          if (env.get(y) != None)  Var(env(y))
+          else Var(y)
         }
-
-        case Call(e1, args) => ???
-
-        case Obj(fields) => ???
-        case GetField(e1, f) => ???
+        //  if (x == y) ConstDecl(x, substitute(e1, v, x), e2) else ConstDecl(y, substitute(e1, v, x), substitute(e2, v, x))
+        //
+        //          // possible edge cases with y == yp. or others where things are already redifined?
+        case Decl(mode, y, e1, e2) => {
+          val yp = fresh(y)
+          // y goes to yp.  recurse into body following def.
+          Decl(mode, yp, ren(env, e1), ren(env + (y -> yp), e2))
+        }
+        // rename def in each param to freshy by updating env with that mapping
+        // pass them back in.
+        case Function(p, params, tann, e1) => {
+          // returns (optional: none/some, map of string, string - env)
+          // if function isn't named return env.
+          // if function has a name, freshy name and update env.
+          val (pp, envp): (Option[String], Map[String,String]) = p match {
+            case None => (None, env)
+            case Some(x) => (Some(fresh(x)), env + (x -> fresh(x)))
+          }
+          // want to rename each param to function, too if relevant
+          // return (params, updated env with mapping from x to fresh(x)
+          // folding in a new env based on extensions from param names without params.  rebuild param defs.
+          // params are List[(String,MTyp)].  (name, type)
+          // return same type as params.
+          // returns fresh params, fresh env.
+          // fold gets second callback arg as accumulator.  part of method, itself.
+          val (paramsp, envpp) = params.foldRight( (Nil: List[(String,MTyp)], envp) ) {
+            case ((paramName, paramType), (paramsAcc, envAcc)) => {
+              val freshName = fresh(paramName)
+              ((freshName, paramType) :: paramsAcc, envAcc + (paramName -> freshName))
+            }
+          }
+          Function(pp, paramsp, tann, ren(envpp, e1))
+        }
+        // recurse for each arg
+        case Call(e1, args) => Call(ren(env, e1), args.map{arg => ren(env, arg)})
+        // recurse for each value in field
+        case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fKey, ren(env, fValue))})
+        // recurse into object
+        case GetField(e1, f) => GetField(ren(env, e1), f)
       }
     }
     ren(empty, e)
