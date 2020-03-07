@@ -387,6 +387,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Binary(And, B(v1), v2) if isValue(B(v1)) => if (v1) v2 else B(v1)
       case Binary(Or, B(v1), v2) if isValue(B(v1)) => if (v1) B(v1) else v2
       case If(B(v1), e2, e3) if isValue(B(v1)) => if (v1) e2 else e3
+      case Decl(m, x, e1, e2) if isValue(e1) => ???
         /***** More cases here */
       case Call(v1, args) if isValue(v1) =>
         v1 match {
@@ -415,7 +416,17 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       /* Inductive Cases: Search Rules */
       case Print(e1) => Print(step(e1))
         /***** Cases from Lab 3. */
-      case Unary(uop, e1) => ???
+      /* SearchUnary */
+      case Unary(uop, e1) => Unary(uop, step(e1))
+      /* SearchBinary */
+      case Binary(bop, e1, e2) => Binary(bop, step(e1), e2)
+      /* SearchCall */
+      case Call(e1, e2) => Call(step(e1), e2)
+      /* SearchIf */
+      case If(e1, e2, e3) => If(step(e1), e2, e3)
+      /* SearchConst */
+      case Decl(m, x, e1, e2) => Decl(m, x, step(e1), e2)
+      /* SearchPrint */
         /***** More cases here */
         /***** Cases needing adapting from Lab 3 */
       case Call(v1 @ Function(_, _, _, _), args) => ???
