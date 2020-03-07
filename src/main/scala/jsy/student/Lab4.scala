@@ -78,7 +78,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   // List.foldLeft method.
   def treeFromList(l: List[Int]): Tree =
     l.foldLeft(Empty: Tree){ (acc, i) => acc insert i }
-  
+
   def strictlyOrdered(t: Tree): Boolean = {
     val (b, _) = foldLeft(t)((true, None: Option[Int])){
       (acc, i) => acc match {
@@ -161,49 +161,70 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case (TString, TString) => TString
         case (TNumber, TNumber) => TNumber
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e2)
       }
       case Binary(Minus|Times|Div, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TNumber, TNumber) => TNumber
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e2)
       }
       case Binary(Eq|Ne, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TString, TString) => TBool
         case (TNumber, TNumber) => TBool
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e2)
       }
       case Binary(Lt|Le|Gt|Ge, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TString, TString) => TBool
         case (TNumber, TNumber) => TBool
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e2)
       }
       case Binary(And|Or, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TBool, TBool) => TBool
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e2)
       }
-      case Binary(Seq, e1, e2) =>
-        ???
+      case Binary(Seq, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+        case (t1, t2) => t2
+        case (tgot, _) => err(tgot, e1)
+        case (_, tgot) => err(tgot, e2)
+      }
       case If(e1, e2, e3) => (typeof(env, e1), typeof(env, e2), typeof(env, e3)) match {
-        //case (TBool, e2, e3) => typeof(env, e2) ==
+        case (TBool, t2, t3) if (t2 == t3) => t2
+        case (tgot, _, _) => err(tgot, e1)
+        case (_, tgot, _) => err(tgot, e2)
+        case (_, _, tgot) => err(tgot, e3)
       }
-      case Obj(fields) => ???
-      case GetField(e1, f) => ???
+      // mapValues
+      case Obj(fields) => TObj(fields.map{case (k, ei) => (k, typeof(env, ei))})
+      case GetField(e1, f) => typeof(env, e1) match {
+        case TObj(t1) => t1.get(f) match {
+          case None => err(TObj(t1), e1)
+          case Some(s) => s
+        }
+        case tgot => err(tgot, e1)
+      }
 
-      case Decl(m, x, e1, e2) => ???
+      case Decl(m, x, e1, e2) => {
+        val newEnv = env + (x -> typeof(env, e1))
+        typeof(newEnv, e2)
+      }
 
       case Function(p, params, tann, e1) => {
         // Bind to env1 an environment that extends env with an appropriate binding if
         // the function is potentially recursive.
         val env1 = (p, tann) match {
           /***** Add cases here *****/
+          case (None, _) => env
+          //case (Some(p), Some(t)) => env + (t -> TFunction(p, t))
           case _ => err(TUndefined, e1)
         }
         // Bind to env2 an environment that extends env1 with bindings for params.
-        val env2 = ???
+        val env2 = {
+//          val newEnv = env + params.forAll(case x => (typeof(env, x)))
+//          typeof(newEnv, e1)
+        }
         // Infer the type of the function body
         val t1 = ???
         // Check with the possibly annotated return type
@@ -212,7 +233,8 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Call(e1, args) => typeof(env, e1) match {
         case TFunction(params, tret) if (params.length == args.length) =>
           (params zip args).foreach {
-            ???
+            //val argType =
+            case (_, arg) => typeof(env, arg)
           }
           tret
         case tgot => err(tgot, e1)
@@ -272,21 +294,35 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Unary(uop, e1) => Unary(uop, subst(e1))
       case Binary(bop, e1, e2) => Binary(bop, subst(e1), subst(e2))
       case If(e1, e2, e3) => If(subst(e1), subst(e2), subst(e3))
+      // base case.  var shadowing - x.  var y - this base case var. replace if equal.
       case Var(y) => if (x == y) esub else e
       case Decl(mode, y, e1, e2) => if (x == y) Decl(mode, x, subst(e1), e2) else Decl(mode, y, subst(e1), subst(e2))
         /***** Cases needing adapting from Lab 3 */
-      case Function(p, params, tann, e1) =>
-        ???
-      case Call(e1, args) => ???
+      case Function(p, params, tann, e1) => p match {
+        /* DoCall */
+        case None => if (params.contains(x)) e else Function(None, params, tann, subst(e1))
+        /* DoCallRec */
+        case Some(y1) => {
+          /* function remains the same if x is redeclared by function name or param */
+          if (x == y1 || params.contains(x)) e
+          /* otherwise recursively call substitute */
+          else Function(Some(y1), params, tann, subst(e1))
+        }
+      }
+      // recurses in now for each argument, since multi-argument.
+      case Call(e1, args) => Call(subst(e1), args.map{arg => subst(arg)})
         /***** New cases for Lab 4 */
-      case Obj(fields) => ???
-      case GetField(e1, f) => ???
+      // sub into each value in the object which may contain vars that need substitution
+      case Obj(fields) => Obj(fields.map{ case (fkey, fval) => (fkey, subst(fval)) })
+      // do substitutions for object used in get field. -- is this right?  or should be just be in obj declaration?
+      // or do we sub first in get field.
+      case GetField(e1, f) => GetField(subst(e1), f)
     }
 
-    val fvs = freeVars(???)
-    def fresh(x: String): String = if (???) fresh(x + "$") else x
+    val fvs = freeVars(e)
+    def fresh(x: String): String = if (fvs.contains(x)) fresh(x + "$") else x
 
-    subst(e) // change this line when you implement capture-avoidance
+    subst(rename(e)(fresh)) // change this line when you implement capture-avoidance
   }
 
   /* Check whether or not an expression is reducible given a mode. */
