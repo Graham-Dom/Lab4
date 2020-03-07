@@ -343,7 +343,14 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case GetField(e1, f) => GetField(subst(e1), f)
     }
 
+    // 1. find free vars if they exist
+    //    (we are given helper function).
+    // 2. define 'fresh' which will update name itself (this is callback to rename)
+    // 3. rename updates vars and env with 'fresh' var and mapping from (oldVar -> freshVar)
+    // 4. curry rename with fresh.
+
     val fvs = freeVars(e)
+    // of not contains.  we want to rename free variables.
     def fresh(x: String): String = if (fvs.contains(x)) fresh(x + "$") else x
 
     subst(rename(e)(fresh)) // change this line when you implement capture-avoidance
@@ -351,8 +358,10 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
 
   /* Check whether or not an expression is reducible given a mode. */
   def isRedex(mode: Mode, e: Expr): Boolean = mode match {
-    case MConst => ???
-    case MName => ???
+    // reduce if it's not yet reduced to be a value.
+    case MConst => !isValue(e)
+    // do not evaluate until necessary.  lazy eval
+    case MName => false
   }
 
   /* A small-step transition. */
