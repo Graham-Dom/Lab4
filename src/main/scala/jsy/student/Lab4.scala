@@ -371,7 +371,22 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
         /***** Cases needing adapting from Lab 3. */
-      case Unary(Neg, v1) if isValue(v1) => ???
+      case Unary(Neg, N(v1)) if isValue(N(v1)) => N(-1 * v1)
+      case Unary(Not, B(v1)) if isValue(B(v1)) => B(!v1)
+
+      case Binary(Plus, S(v1), S(v2)) if isValue(S(v1)) && isValue(S(v2)) => S(v1 + v2)
+      case Binary(Plus, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 + v2)
+      case Binary(Minus, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 - v2)
+      case Binary(Times, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 * v2)
+      case Binary(Div, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 / v2)
+      case Binary(Gt, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Gt, v1, v2))
+      case Binary(Ge, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Ge, v1, v2))
+      case Binary(Lt, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Lt, v1, v2))
+      case Binary(Lt, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Le, v1, v2))
+
+      case Binary(And, B(v1), v2) if isValue(B(v1)) => if (v1) v2 else B(v1)
+      case Binary(Or, B(v1), v2) if isValue(B(v1)) => if (v1) B(v1) else v2
+      case If(B(v1), e2, e3) if isValue(B(v1)) => if (v1) e2 else e3
         /***** More cases here */
       case Call(v1, args) if isValue(v1) =>
         v1 match {
