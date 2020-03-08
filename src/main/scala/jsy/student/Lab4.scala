@@ -36,19 +36,19 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   /*** Collections and Higher-Order Functions ***/
   
   /* Lists */
-  
+
   def compressRec[A](l: List[A]): List[A] = l match {
     case Nil | _ :: Nil => Nil
     case h1 :: (t1 @ (h2 :: _)) => h1 :: compressRec(t1.dropWhile(_ == h1))
   }
-  
+
   def compressFold[A](l: List[A]): List[A] = l.foldRight(Nil: List[A]){
     (h, acc) => acc match {
       case Nil => h :: Nil
       case h1 :: _ => if (h == h1) acc; else h :: acc;
     }
   }
-  
+
   def mapFirst[A](l: List[A])(f: A => Option[A]): List[A] = l match {
     case Nil => l
     case h :: t => f(h) match {
@@ -56,7 +56,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Some(a) => a :: t
     }
   }
-  
+
   /* Trees */
 
   def foldLeft[A](t: Tree)(z: A)(f: (A, Int) => A): A = {
@@ -95,7 +95,8 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case Binary(bop, e1, e2) => Binary(bop, ren(env, e1), ren(env, e2))
         case If(e1, e2, e3) => If(ren(env, e1), ren(env, e2), ren(env, e3))
         case Var(y) => env.get(y) match {
-          case Some(x) => Var(env(x))
+          // case Some(x) => Var(env(x))
+          case Some(x) => Var(x)
           case None => Var(y)
         }
         case Decl(mode, y, e1, e2) => {
@@ -105,19 +106,24 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case Function(p, params, tann, e1) => {
           val (pp, envp): (Option[String], Map[String,String]) = p match {
             case None => (None, env)
-            case Some(x) => (Some(fresh(x)), env + (x -> fresh(x)))
+            case Some(x) => {
+              val fresh_var = fresh(x)
+              (Some(fresh_var), env + (x -> fresh_var))
+            }
           }
           val (paramsp, envpp) = params.foldRight( (Nil: List[(String,MTyp)], envp) ) {
-            case ((paramName, paramType), (paramsAcc, envAcc)) => {
-              val freshName = fresh(paramName)
-              ((freshName, paramType) :: paramsAcc, envAcc + (paramName -> freshName))
+            case ((pn, pt), (paramsAcc, envAcc)) => {
+              val fresh_var = fresh(pn)
+              ((fresh_var, pt) :: paramsAcc, envAcc + (pn -> fresh_var))
             }
           }
           Function(pp, paramsp, tann, ren(envpp, e1))
         }
         case Call(e1, args) => Call(ren(env, e1), args.map{arg => ren(env, arg)})
-        case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fKey, ren(env, fValue))})
-        case GetField(e1, f) => GetField(ren(env, e1), f)
+        // should obj fields be updated by renaming?
+        // case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fKey, ren(env, fValue))})
+        case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fresh(fKey), ren(env, fValue))})
+        case GetField(e1, f) => GetField(ren(env, e1), fresh(f))
       }
     }
     ren(empty, e)
@@ -307,11 +313,12 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         /* DoCall */
         case None => if (params.contains(x)) e else Function(None, params, tann, subst(e1))
         /* DoCallRec */
-        case Some(y1) => {
+        case Some(y) => {
           /* function remains the same if x is redeclared by function name or param */
-          if (x == y1 || params.contains(x)) e
+          if (x == y || params.contains(x)) e
           /* otherwise recursively call substitute */
-          else Function(Some(y1), params, tann, subst(e1))
+          // else Function(Some(y), params, tann, subst(e1)
+          else Function(Some(y), params, tann, substitute(e1, esub, x))
         }
       }
       // recurses in now for each argument, since multi-argument.
@@ -320,8 +327,8 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       // sub into each value in the object which may contain vars that need substitution
       case Obj(fields) => Obj(fields.map{ case (fkey, fval) => (fkey, subst(fval)) })
       // do substitutions for object used in get field. -- is this right?  or should be just be in obj declaration?
-      // or do we sub first in get field.
-      case GetField(e1, f) => GetField(subst(e1), f)
+      // or do we sub first in get field.s
+      case GetField(e1, f) =>if (x == f) e else GetField(subst(e1), f)
     }
 
     // 1. find free vars if they exist
@@ -334,7 +341,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     // of not contains.  we want to rename free variables.
     def fresh(x: String): String = if (fvs.contains(x)) fresh(x + "$") else x
 
-    subst(rename(e)(fresh)) // change this line when you implement capture-avoidance
+    subst(rename(e)(fresh))
   }
 
   /* Check whether or not an expression is reducible given a mode. */
@@ -357,18 +364,22 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
 
       case Binary(Plus, S(v1), S(v2)) if isValue(S(v1)) && isValue(S(v2)) => S(v1 + v2)
       case Binary(Plus, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 + v2)
+
       case Binary(Minus, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 - v2)
       case Binary(Times, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 * v2)
       case Binary(Div, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 / v2)
-      case Binary(Gt, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Gt, v1, v2))
-      case Binary(Ge, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Ge, v1, v2))
-      case Binary(Lt, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Lt, v1, v2))
-      case Binary(Lt, v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(Le, v1, v2))
 
+      case Binary(bop @ (Lt|Le|Gt|Ge), v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(bop, v1, v2))
+
+      case Binary(Eq, v1, v2) if isValue(v1) && isValue(v2) => B(v1 == v2)
+      case Binary(Ne, v1, v2) if isValue(v1) && isValue(v2) => B(v1 != v2)
+
+      // v1 cases start
       case Binary(And, B(v1), v2) if isValue(B(v1)) => if (v1) v2 else B(v1)
       case Binary(Or, B(v1), v2) if isValue(B(v1)) => if (v1) B(v1) else v2
+
       case If(B(v1), e2, e3) if isValue(B(v1)) => if (v1) e2 else e3
-      case Decl(m, x, e1, e2) if isValue(e1) && isRedex(m, e1) => substitute(e2, e1, x)
+      case Decl(m, x, v1, e2) if isValue(v1) && isRedex(m, v1) => substitute(e2, v1, x)
         /***** More cases here */
       case Call(v1, args) if isValue(v1) =>
         v1 match {
