@@ -62,6 +62,8 @@ object ast {
   /* I/O */
   case class Print(e1: Expr) extends Expr
 
+
+
   /* Objects */
   case class Obj(fields: Map[String, Expr]) extends Expr
   case class GetField(e1: Expr, f: String) extends Expr

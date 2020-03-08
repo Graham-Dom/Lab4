@@ -387,19 +387,27 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Binary(And, B(v1), v2) if isValue(B(v1)) => if (v1) v2 else B(v1)
       case Binary(Or, B(v1), v2) if isValue(B(v1)) => if (v1) B(v1) else v2
       case If(B(v1), e2, e3) if isValue(B(v1)) => if (v1) e2 else e3
-      case Decl(m, x, e1, e2) if isValue(e1) => ???
+      // reduce on e1 if based on mode and value status of e1
+      // base case steps?  what if it's not redex.
+      case Decl(m, x, e1, e2) if isValue(e1) && isRedex(m, e1) => substitute(e2, e1, x)
         /***** More cases here */
       case Call(v1, args) if isValue(v1) =>
         v1 match {
           case Function(p, params, _, e1) => {
+            // put arg and param in key/value pairs
+            // (param, arg)
+            // ((String,MTyp), Expr)
             val pazip = params zip args
-            if (???) {
+            if (pazip.forall{case ((s, MTyp(m, t)), ei) => isRedex(m, ei)}) {
+              // get new body by iteratively doing substs for params.
               val e1p = pazip.foldRight(e1) {
-                ???
+                case (((s,_), ei), accBody ) => substitute(accBody, ei, s)
               }
               p match {
-                case None => ???
-                case Some(x1) => ???
+                case None => e1p
+                // recursive sub for function name, the def of function into
+                // new function body.
+                case Some(x1) => substitute(e1p, e1, x1)
               }
             }
             else {
