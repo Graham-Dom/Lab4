@@ -162,9 +162,11 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case (tgot, _) => err(tgot, e1)
         case (_, tgot) => err(tgot, e2)
       }
+      // what error to return.
       case Binary(Eq|Ne, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (TString, TString) => TBool
-        case (TNumber, TNumber) => TBool
+        case (TFunction(_, _), _) => err(typeof(env, e1), e1)
+        case (_, TFunction(_, _)) => err(typeof(env, e2), e2)
+        case (t1, t2) => if (t1 == t2 && !hasFunctionTyp(t1)) TBool else err(t1, e1)
         case (tgot, _) => err(tgot, e1)
         case (_, tgot) => err(tgot, e2)
       }
@@ -180,27 +182,27 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case (_, tgot) => err(tgot, e2)
       }
       case Binary(Seq, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (t1, t2) => t2
+        case (t1, t2) => t1; t2
         case (tgot, _) => err(tgot, e1)
         case (_, tgot) => err(tgot, e2)
       }
-      case If(e1, e2, e3) => (typeof(env, e1), typeof(env, e2), typeof(env, e3)) match {
-        case (TBool, t2, t3) if (t2 == t3) => t2
-        case (tgot, _, _) => err(tgot, e1)
-        case (_, tgot, _) => err(tgot, e2)
-        case (_, _, tgot) => err(tgot, e3)
+      // what is the error type if the rule doesn't match?
+      case If(e1, e2, e3) => typeof(env, e1) match {
+        case TBool => {
+          val e2_type = typeof(env, e2)
+          val e3_type = typeof(env, e3)
+          if (e2_type == e3_type) e2_type else err(e2_type, e2)
+        }
+        // case (_, _, tgot) => err(tgot, e3)
       }
       // mapValues
       case Obj(fields) => TObj(fields.map{case (k, ei) => (k, typeof(env, ei))})
       case GetField(e1, f) => typeof(env, e1) match {
-        case TObj(t1) => t1.get(f) match {
-          case None => err(TObj(t1), e1)
-          case Some(s) => s
-        }
+        case TObj(fields) if fields.contains(f) => fields(f)
         case tgot => err(tgot, e1)
       }
 
-      case Decl(m, x, e1, e2) => {
+      case Decl(_, x, e1, e2) => {
         val newEnv = env + (x -> typeof(env, e1))
         typeof(newEnv, e2)
       }
@@ -233,7 +235,11 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case TFunction(params, tret) if (params.length == args.length) =>
           (params zip args).foreach {
             //val argType =
-            case (_, arg) => typeof(env, arg)
+            case ((_, MTyp(_, t)), arg) => {
+              val arg_type = typeof(env, arg)
+              if (arg_type != t) err(arg_type, arg)
+              typeof(env, arg)
+            }
           }
           tret
         case tgot => err(tgot, e1)
@@ -374,7 +380,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
             if (pazip.forall{case ((s, MTyp(m, t)), ei) => isRedex(m, ei)}) {
               // get new body by iteratively doing substs for params.
               val e1p = pazip.foldRight(e1) {
-                case (((s,_), ei), accBody ) => substitute(accBody, ei, s)
+                case (((s,_), ei), accBody) => substitute(accBody, ei, s)
               }
               p match {
                 case None => e1p
@@ -384,20 +390,20 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
               }
             }
             else {
-              val pazipp = mapFirst(pazip) {
-                ???
+              val pazipp = mapFirst(pazip.toList) {
+                case ((s, MTyp(m, t)), ei) => if (isRedex(m, ei)) Some((s, MTyp(m,t)), step(ei)) else None
               }
-              ???
+              Call(v1, pazipp.map{x=> x._2})
             }
           }
           case _ => throw StuckError(e)
         }
 
-      case Obj(fields) => ???
+      //case Obj(fields) => ???
       case GetField(e1, f) if isValue(e1) => e1 match {
         case Obj(fields) => fields.get(f) match {
           case Some(x) => x
-          case _ => ???
+          case _ => throw StuckError(e)
         }
       }
         /***** New cases for Lab 4. */
@@ -414,9 +420,9 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       /* SearchGetField */
       case GetField(e1, f) => GetField(step(e1), f)
       /* SearchObj */
-      case Obj(fields) => fields.find{case (fkey, fval) => isValue(fval)} match {
+      case Obj(fields) => fields.find{case (fkey, fval) => !isValue(fval)} match {
         case Some((k, vali)) =>  Obj(fields + (k -> step(vali)))
-        case None => ???
+        case None => Obj(fields)
       }
       /* SearchCall */
       case Call(e1, e2) => Call(step(e1), e2)
