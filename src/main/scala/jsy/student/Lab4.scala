@@ -177,48 +177,40 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       /* TypeArith */
       case Binary(Minus|Times|Div, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TNumber, TNumber) => TNumber
+        case (TNumber, tgot) => err(tgot, e2)
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e2)
       }
       /* TypePlusString */
-      case Binary(Plus, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (TString, TString) => TString
-        case (TNumber, TNumber) => TNumber
-        case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e2)
-      }
       /* TypeInequalityString */
       /* TypeInequalityNumber */
-      case Binary(Lt|Le|Gt|Ge, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
+      case Binary(Plus|Lt|Le|Gt|Ge, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TString, TString) => TString
         case (TNumber, TNumber) => TNumber
+        case (TNumber | TString, tgot) => err(tgot, e2)
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e2)
       }
       /* TypeEquality */
       case Binary(Eq|Ne, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (TFunction(_, _), _) => err(typeof(env, e1), e1)
-        case (_, TFunction(_, _)) => err(typeof(env, e2), e2)
-        case (t1, t2) => if (t1 == t2 && !hasFunctionTyp(t1)) TBool else err(t1, e1)
+        case (tgot, _) if hasFunctionTyp(tgot) => err(typeof(env, e1), e1)
+        case (_, tgot) if hasFunctionTyp(tgot) => err(typeof(env, e2), e2)
+        case (t1, t2) if (t1 == t2) => TBool
+        case (t1, t2) if (t1 != t2) => err(t1, e1)
         case (tgot, _) => err(tgot, e1)
         case (_, tgot) => err(tgot, e2)
       }
       /* TypeAndOr */
       case Binary(And|Or, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
         case (TBool, TBool) => TBool
+        case (TBool, tgot) => err(tgot, e2)
         case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e2)
       }
       /* TypeIf */
-      case If(e1, e2, e3) => typeof(env, e1) match {
-        case TBool => {
-          val e2_type = typeof(env, e2)
-          val e3_type = typeof(env, e3)
-          if (e2_type == e3_type) e2_type else err(e3_type, e3)
-        }
+      case If(e1, e2, e3) => (typeof(env, e1), typeof(env, e2), typeof(env, e3)) match {
+        case (TBool, t2, t3) => if (t2 == t3) t2 else err(t3, e3)
+        case (tgot, _, _) => err(tgot, e1)
       }
       /* TypeDecl */
-      case Decl(_, x, e1, e2) => typeof((env + (x -> typeof(env, e1))), e2)
+      case Decl(_, x, e1, e2) => typeof(env+(x->typeof(env, e1)), e2)
       /* TypeCall */
       case Call(e1, args) => typeof(env, e1) match {
         case TFunction(params, tret) if (params.length == args.length) =>
@@ -232,10 +224,10 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case tgot => err(tgot, e1)
       }
       /* TypeObject */
-      case Obj(fields) => TObj(fields.map{case (k, ei) => (k, typeof(env, ei))})
+      case Obj(fields) => TObj(fields.mapValues{x => typeof(env, x)})
       /* TypeGetField */
       case GetField(e1, f) => typeof(env, e1) match {
-        case TObj(fields) if fields.contains(f) => fields(f)
+        case TObj(fields) => fields(f)
         case tgot => err(tgot, e1)
       }
       /* TypeFunction */
@@ -248,12 +240,12 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
           /* TypeFunctionAnn */
           case (None, _) => env
           /* TypeRecFunction */
-          case (Some(x), Some(y)) => env + (x -> TFunction(params, y))
+          case (Some(x), Some(y)) => env+(x->TFunction(params, y))
           case _ => err(TUndefined, e1)
         }
         // Bind to env2 an environment that extends env1 with bindings for params.
         val env2 = (params.foldLeft(env1){
-          case (acc, (s, MTyp(_, t))) => acc + (s -> t)
+          case (acc, (s, MTyp(_, t))) => acc+(s->t)
         })
         // Infer the type of the function body
         val t1 = typeof(env2, e1)
@@ -261,9 +253,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         /* TypeFunctionAnn */
         tann match {
           case None => TFunction(params, t1)
-          case Some(t) => {
-            if (t == t1) TFunction(params, t) else err(TFunction(params, t), e1)
-          }
+          case Some(t) => if (t == t1) TFunction(params, t) else err(TFunction(params, t), e1)
         }
       }
 
@@ -287,18 +277,18 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     require(bop == Lt || bop == Le || bop == Gt || bop == Ge)
     (v1, v2) match {
       /* DoInequalityString */
-      case (S(v1), S(v2)) => bop match {
-        case Gt => v1 > v2
-        case Ge => v1 >= v2
-        case Lt => v1 < v2
-        case Le => v1 <= v2
+      case (S(s1), S(s2)) => bop match {
+        case Gt => s1 > s2
+        case Ge => s1 >= s2
+        case Lt => s1 < s2
+        case Le => s1 <= s2
       }
       /* DoInequalityNumber */
-      case (N(v1), N(v2)) => bop match {
-        case Gt => v1 > v2
-        case Ge => v1 >= v2
-        case Lt => v1 < v2
-        case Le => v1 <= v2
+      case (N(n1), N(n2)) => bop match {
+        case Gt => n1 > n2
+        case Ge => n1 >= n2
+        case Lt => n1 < n2
+        case Le => n1 <= n2
       }
     }
   }
@@ -337,21 +327,15 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case If(e1, e2, e3) => If(subst(e1), subst(e2), subst(e3))
       // base case.  var shadowing - x.  var y - this base case var. replace if equal.
       /* DoDecl */
-      case Decl(mode, y, e1, e2) => {
-        if (x == y) Decl(mode, x, subst(e1), e2)
-        else Decl(mode, y, subst(e1), subst(e2))
-      }
+      case Decl(mode, y, e1, e2) => if (x == y) Decl(mode, x, subst(e1), e2) else Decl(mode, y, subst(e1), subst(e2))
       case Function(p, params, tann, e1) => p match {
         /* DoCall */
-        case None => if (params.exists{ case (k, _) => k == x}) e else Function(None, params, tann, subst(e1))
+        case None => if (params.exists{ p => p._1 == x}) e else Function(None, params, tann, subst(e1))
         /* DoCallRec */
-        case Some(y) => {
+        case Some(y) => if (x == y || params.exists{ p => p._1 == x }) e else Function(Some(y), params, tann, subst(e1))
           /* function remains the same if x is redeclared by function name or param */
-          if (x == y || params.exists{ case (k, _) => k == x}) e
           /* otherwise recursively call substitute */
           // else Function(Some(y), params, tann, subst(e1)
-          else Function(Some(y), params, tann, subst(e1))
-        }
       }
       /* DoCall */
       /* DoCallRec */
@@ -393,24 +377,29 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Unary(Not, B(v1)) if isValue(B(v1)) => B(!v1)
       /* DoSeq */
       case Binary(Seq, v1, e2) if isValue(v1) => v1; e2
-      /* DoPlusString */
-      case Binary(Plus, S(v1), S(v2)) if isValue(S(v1)) && isValue(S(v2)) => S(v1 + v2)
-      /* DoArith */
-      case Binary(Plus, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 + v2)
-      /* DoArith */
-      case Binary(Minus, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 - v2)
-      /* DoArith */
-      case Binary(Times, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 * v2)
-      /* DoArith */
-      case Binary(Div, N(v1), N(v2)) if isValue(N(v1)) && isValue(N(v2)) => N(v1 / v2)
-      /* DoInequalityNumber */
-      /* DoInequalityString */
-      case Binary(bop @ (Lt|Le|Gt|Ge), v1, v2) if isValue(v1) && isValue(v2) => B(inequalityVal(bop, v1, v2))
-      /* DoEquality */
-      case Binary(Eq, v1, v2) if isValue(v1) && isValue(v2) => B(v1 == v2)
-      case Binary(Ne, v1, v2) if isValue(v1) && isValue(v2) => B(v1 != v2)
-      /* DoAndTrue */
-      /* DoAndFalse */
+      case Binary(bop, v1, v2) if isValue(v1) && isValue(v2) => bop match {
+        /* DoPlusString */
+        case Plus => (v1, v2) match {
+          case (S(v1), S(v2)) => S(v1 + v2)
+          case (N(v1), N(v2)) => N(v1 + v2)
+        }
+        /* DoArith */
+        case Minus => (v1, v2) match {
+          case (N(v1), N(v2)) => N(v1 - v2)
+        }
+        case Times => (v1, v2) match {
+          case (N(v1), N(v2)) => N(v1 * v2)
+        }
+        case Div => (v1, v2) match {
+          case (N(v1), N(v2)) => N(v1 / v2)
+        }
+        /* DoInequalityNumber */
+        /* DoInequalityString */
+        case (Lt|Le|Gt|Ge) => B(inequalityVal(bop, v1, v2))
+        /* DoEquality */
+        case Eq => B(v1 == v2)
+        case Ne => B(v1 != v2)
+      }
       case Binary(And, v1, e2) if isValue(v1) => v1 match {
         case B(b1) => if (b1) e2 else v1
       }
@@ -425,7 +414,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case B(b1) => if (b1) e2 else e3
       }
       /* DoDecl */
-      case Decl(m, x, v1, e2) if isValue(v1) => substitute(e2, v1, x)
+      case Decl(_, x, v1, e2) if isValue(v1) => substitute(e2, v1, x)
       /* DoCall */
       /* DoCallRec */
       case Call(v1, args) if isValue(v1) => v1 match {
@@ -444,7 +433,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
             val pazipp = mapFirst(pazip.toList) {
               case ((s, MTyp(m, t)), arg) => if (isRedex(m, arg)) Some((s, MTyp(m,t)), step(arg)) else None
             }
-            Call(v1, pazipp.map{ case (_, x) => x })
+            Call(v1, pazipp.unzip._2)
           }
         }
         case _ => throw StuckError(e)
@@ -453,13 +442,15 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case GetField(e1, f) if isValue(e1) => e1 match {
         case Obj(fields) => fields.get(f) match {
           case Some(x) => x
+          case None => throw StuckError(e)
         }
+        case _ => throw StuckError(e)
       }
       /* Inductive Cases: Search Rules */
       /* SearchUnary */
       case Unary(uop, e1) => Unary(uop, step(e1))
       /* SearchBinary2 */
-      case Binary(bop, e1, e2) if (isValue(e1)) => Binary(bop, e1, step(e2))
+      case Binary(bop, e1, e2) if isValue(e1) => Binary(bop, e1, step(e2))
       /* SearchBinary */
       case Binary(bop, e1, e2) => Binary(bop, step(e1), e2)
       /* SearchPrint */
