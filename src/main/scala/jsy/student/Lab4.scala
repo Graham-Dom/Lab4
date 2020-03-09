@@ -417,20 +417,18 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       /* DoIfFalse */
       case If(B(v1), e2, e3) if isValue(B(v1)) => if (v1) e2 else e3
       /* DoDecl */
-      case Decl(m, x, v1, e2) if isValue(v1) && isRedex(m, v1) => substitute(e2, v1, x)
+      case Decl(m, x, v1, e2) if isValue(v1) => substitute(e2, v1, x)
       /* DoCall */
       /* DoCallRec */
       case Call(v1, args) if isValue(v1) => v1 match {
         case Function(p, params, _, e1) => {
           val pazip = params zip args
-          if (pazip.forall{ case ((_, MTyp(m, _)), ei) => isRedex(m, ei)}) {
+          if (pazip.forall{ case ((_, MTyp(m, _)), ei) => !isRedex(m, ei)}) {
             val e1p = pazip.foldRight(e1) {
               case (((s,_), ei), accBody) => substitute(accBody, ei, s)
             }
             p match {
               case None => e1p
-              // recursive sub for function name, the def of function into
-              // new function body.
               case Some(x1) => substitute(e1p, v1, x1)
             }
           }
@@ -451,26 +449,26 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       }
       /* Inductive Cases: Search Rules */
       /* SearchUnary */
-      case Unary(uop, e1) => Unary(uop, step(e1))
+      case Unary(uop, e1) if (!isValue(e1)) => Unary(uop, step(e1))
       /* SearchBinary2 */
-      case Binary(bop, e1, e2) if isValue(e1) => Binary(bop, e1, step(e2))
+      case Binary(bop, e1, e2) if (isValue(e1) && !isValue(e2)) => Binary(bop, e1, step(e2))
       /* SearchBinary */
-      case Binary(bop, e1, e2) => Binary(bop, step(e1), e2)
+      case Binary(bop, e1, e2) if (!isValue(e1)) => Binary(bop, step(e1), e2)
       /* SearchPrint */
-      case Print(e1) => Print(step(e1))
+      case Print(e1) if (!isValue(e1)) => Print(step(e1))
       /* SearchIf */
-      case If(e1, e2, e3) => If(step(e1), e2, e3)
+      case If(e1, e2, e3) if (!isValue(e1)) => If(step(e1), e2, e3)
       /* SearchDecl */
-      case Decl(m, x, e1, e2) => Decl(m, x, step(e1), e2)
+      case Decl(m, x, e1, e2) if (!isValue(e1)) => Decl(m, x, step(e1), e2)
       /* SearchCall */
-      case Call(e1, e2) => Call(step(e1), e2)
+      case Call(e1, e2) if (!isValue(e1)) => Call(step(e1), e2)
       /* TODO: SearchCall2 */
       /* SearchObj */
       case Obj(fields) => fields.find{case (_, fval) => !isValue(fval)} match {
-        case Some((k, vali)) =>  Obj(fields + (k -> step(vali)))
+        case Some((k, vali)) if (!isValue(vali)) =>  Obj(fields + (k -> step(vali)))
       }
       /* SearchGetField */
-      case GetField(e1, f) => GetField(step(e1), f)
+      case GetField(e1, f) if (!isValue(e1)) => GetField(step(e1), f)
       /* Everything else is a stuck error. Should not happen if e is well-typed.
        *
        * Tip: you might want to first develop by comment out the following line to see which
