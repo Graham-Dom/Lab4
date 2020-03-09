@@ -97,33 +97,32 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case Binary(bop, e1, e2) => Binary(bop, ren(env, e1), ren(env, e2))
         case If(e1, e2, e3) => If(ren(env, e1), ren(env, e2), ren(env, e3))
         case Var(y) => env.get(y) match {
-          // case Some(x) => Var(env(x))
           case Some(x) => Var(x)
           case None => Var(y)
         }
         /* FRESH */
         case Decl(mode, y, e1, e2) => {
           val yp = fresh(y)
-          Decl(mode, yp, ren(env, e1), ren((env + (y -> yp)), e2))
+          Decl(mode, yp, ren(env, e1), ren(env+(y->yp), e2))
         }
         /* FRESH */
         case Function(p, params, tann, e1) => {
           val (pp, envp): (Option[String], Map[String,String]) = p match {
             case None => (None, env)
             case Some(x) => {
-              val fresh_var = fresh(x)
-              (Some(fresh_var), (env + (x -> fresh_var)))
+              val fv = fresh(x)
+              (Some(fv), env+(x->fv))
             }
           }
           val (paramsp, envpp) = params.foldRight( (Nil: List[(String,MTyp)], envp) ) {
-            case ((pn, pt), (paramsAcc, envAcc)) => {
-              val fresh_var = fresh(pn)
-              ((fresh_var, pt) :: paramsAcc, (envAcc + (pn -> fresh_var)))
+            case ((s, mt), (pa, ea)) => {
+              val fv = fresh(s)
+              ((fv, mt)::pa, (ea+(s->fv)))
             }
           }
           Function(pp, paramsp, tann, ren(envpp, e1))
         }
-        case Call(e1, args) => Call(ren(env, e1), args.map{arg => ren(env, arg)})
+        case Call(e1, args) => Call(ren(env, e1), args.map{case arg => ren(env, arg)})
         // should obj fields be updated by renaming?
         // case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fKey, ren(env, fValue))})
         case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fKey, ren(env, fValue))})
@@ -338,17 +337,20 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case If(e1, e2, e3) => If(subst(e1), subst(e2), subst(e3))
       // base case.  var shadowing - x.  var y - this base case var. replace if equal.
       /* DoDecl */
-      case Decl(mode, y, e1, e2) => if (x == y) Decl(mode, x, subst(e1), e2) else Decl(mode, y, subst(e1), subst(e2))
+      case Decl(mode, y, e1, e2) => {
+        if (x == y) Decl(mode, x, subst(e1), e2)
+        else Decl(mode, y, subst(e1), subst(e2))
+      }
       case Function(p, params, tann, e1) => p match {
         /* DoCall */
-        case None => if (params.contains(x)) e else Function(None, params, tann, subst(e1))
+        case None => if (params.exists{ case (k, _) => k == x}) e else Function(None, params, tann, subst(e1))
         /* DoCallRec */
         case Some(y) => {
           /* function remains the same if x is redeclared by function name or param */
-          if (x == y || params.contains(x)) e
+          if (x == y || params.exists{ case (k, _) => k == x}) e
           /* otherwise recursively call substitute */
           // else Function(Some(y), params, tann, subst(e1)
-          else Function(Some(y), params, tann, substitute(e1, esub, x))
+          else Function(Some(y), params, tann, subst(e1))
         }
       }
       /* DoCall */
@@ -359,7 +361,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       // do substitutions for object used in get field. -- is this right?  or should be just be in obj declaration?
       // or do we sub first in get field.s
       /* DoGetField */
-      case GetField(e1, f) =>if (x == f) e else GetField(subst(e1), f)
+      case GetField(e1, f) => if (x == f) e else GetField(subst(e1), f)
     }
 
     // 1. find free vars if they exist
@@ -369,9 +371,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     // 4. curry rename with fresh.
 
     val fvs = freeVars(e)
-    // of not contains.  we want to rename free variables.
     def fresh(x: String): String = if (fvs.contains(x)) fresh(x + "$") else x
-
     subst(rename(e)(fresh))
   }
 
@@ -391,6 +391,8 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Unary(Neg, N(v1)) if isValue(N(v1)) => N(-v1)
       /* DoNot */
       case Unary(Not, B(v1)) if isValue(B(v1)) => B(!v1)
+      /* DoSeq */
+      case Binary(Seq, v1, e2) if isValue(v1) => v1; e2
       /* DoPlusString */
       case Binary(Plus, S(v1), S(v2)) if isValue(S(v1)) && isValue(S(v2)) => S(v1 + v2)
       /* DoArith */
@@ -409,13 +411,19 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Binary(Ne, v1, v2) if isValue(v1) && isValue(v2) => B(v1 != v2)
       /* DoAndTrue */
       /* DoAndFalse */
-      case Binary(And, B(v1), v2) if isValue(B(v1)) => if (v1) v2 else B(v1)
+      case Binary(And, v1, e2) if isValue(v1) => v1 match {
+        case B(b1) => if (b1) e2 else v1
+      }
       /* DoOrTrue */
       /* DoOrFalse */
-      case Binary(Or, B(v1), v2) if isValue(B(v1)) => if (v1) B(v1) else v2
+      case Binary(Or, v1, e2) if isValue(v1) => v1 match {
+        case B(b1) => if (b1) v1 else e2
+      }
       /* DoIfTrue */
       /* DoIfFalse */
-      case If(B(v1), e2, e3) if isValue(B(v1)) => if (v1) e2 else e3
+      case If(v1, e2, e3)  if isValue(v1) => v1 match {
+        case B(b1) => if (b1) e2 else e3
+      }
       /* DoDecl */
       case Decl(m, x, v1, e2) if isValue(v1) => substitute(e2, v1, x)
       /* DoCall */
@@ -423,9 +431,9 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       case Call(v1, args) if isValue(v1) => v1 match {
         case Function(p, params, _, e1) => {
           val pazip = params zip args
-          if (pazip.forall{ case ((_, MTyp(m, _)), ei) => !isRedex(m, ei)}) {
+          if (pazip.forall{ case ((_, MTyp(m, _)), arg) => !isRedex(m, arg)}) {
             val e1p = pazip.foldRight(e1) {
-              case (((s,_), ei), accBody) => substitute(accBody, ei, s)
+              case (((s,_), arg), accBody) => substitute(accBody, arg, s)
             }
             p match {
               case None => e1p
@@ -434,9 +442,9 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
           }
           else {
             val pazipp = mapFirst(pazip.toList) {
-              case ((s, MTyp(m, t)), ei) => if (isRedex(m, ei)) Some((s, MTyp(m,t)), step(ei)) else None
+              case ((s, MTyp(m, t)), arg) => if (isRedex(m, arg)) Some((s, MTyp(m,t)), step(arg)) else None
             }
-            Call(v1, pazipp.map{ x => x._2 })
+            Call(v1, pazipp.map{ case (_, x) => x })
           }
         }
         case _ => throw StuckError(e)
@@ -449,26 +457,26 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
       }
       /* Inductive Cases: Search Rules */
       /* SearchUnary */
-      case Unary(uop, e1) if (!isValue(e1)) => Unary(uop, step(e1))
+      case Unary(uop, e1) => Unary(uop, step(e1))
       /* SearchBinary2 */
-      case Binary(bop, e1, e2) if (isValue(e1) && !isValue(e2)) => Binary(bop, e1, step(e2))
+      case Binary(bop, e1, e2) if (isValue(e1)) => Binary(bop, e1, step(e2))
       /* SearchBinary */
-      case Binary(bop, e1, e2) if (!isValue(e1)) => Binary(bop, step(e1), e2)
+      case Binary(bop, e1, e2) => Binary(bop, step(e1), e2)
       /* SearchPrint */
-      case Print(e1) if (!isValue(e1)) => Print(step(e1))
+      case Print(e1) => Print(step(e1))
       /* SearchIf */
-      case If(e1, e2, e3) if (!isValue(e1)) => If(step(e1), e2, e3)
+      case If(e1, e2, e3) => If(step(e1), e2, e3)
       /* SearchDecl */
-      case Decl(m, x, e1, e2) if (!isValue(e1)) => Decl(m, x, step(e1), e2)
+      case Decl(m, x, e1, e2) => if (!isRedex(m, e1)) substitute(e2, e1, x) else Decl(m, x, step(e1), e2)
       /* SearchCall */
-      case Call(e1, e2) if (!isValue(e1)) => Call(step(e1), e2)
+      case Call(e1, e2) => Call(step(e1), e2)
       /* TODO: SearchCall2 */
       /* SearchObj */
       case Obj(fields) => fields.find{case (_, fval) => !isValue(fval)} match {
         case Some((k, vali)) if (!isValue(vali)) =>  Obj(fields + (k -> step(vali)))
       }
       /* SearchGetField */
-      case GetField(e1, f) if (!isValue(e1)) => GetField(step(e1), f)
+      case GetField(e1, f) => GetField(step(e1), f)
       /* Everything else is a stuck error. Should not happen if e is well-typed.
        *
        * Tip: you might want to first develop by comment out the following line to see which
