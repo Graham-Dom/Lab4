@@ -4,7 +4,6 @@ import jsy.lab4.Lab4Like
 
 object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   import jsy.lab4.ast._
-  import jsy.lab4.Parser
   
   /*
    * CSCI 3155: Lab 4
@@ -38,17 +37,24 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   /* Lists */
   
   def compressRec[A](l: List[A]): List[A] = l match {
-    case Nil | _ :: Nil => ???
-    case h1 :: (t1 @ (h2 :: _)) => ???
+    case Nil | _ :: Nil => l
+    case h1 :: (t1 @ (h2 :: _)) =>
+      if (h1 == h2) compressRec(t1) else h1 :: compressRec(t1)
   }
   
   def compressFold[A](l: List[A]): List[A] = l.foldRight(Nil: List[A]){
-    (h, acc) => ???
+    (h, acc) => acc match {
+      case Nil => h :: acc
+      case (h1 :: _) => if (h == h1) acc else h :: acc
+    }
   }
   
   def mapFirst[A](l: List[A])(f: A => Option[A]): List[A] = l match {
-    case Nil => ???
-    case h :: t => ???
+    case Nil => l
+    case h :: t => f(h) match {
+      case Some(h1) => h1 :: t
+      case None => h :: mapFirst(t)(f)
+    }
   }
   
   /* Trees */

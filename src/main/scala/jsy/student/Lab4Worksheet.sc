@@ -9,13 +9,14 @@
 import jsy.lab4.Parser.parse
 
 // Imports the ast nodes
-import jsy.lab4.ast._
 
 // Imports all of the functions form jsy.student.Lab2 (your implementations in Lab2.scala)
 import jsy.student.Lab4._
 
-// Try compressRec
-//val cr1 = compressRec(List(1, 2, 2, 3, 3, 3))
+ //Try compressRec
+val cr1 = compressRec(List(1, 2, 2, 3, 3, 3))
+
+val cr2 = compressRec(List(0,0,0,0,1,2,3,2,2,4,4,4,4,4,4,5))
 
 // Parse functions with possibly multiple parameters and type annotations.
 parse("function fst(x: number, y: number): number { return x }")
