@@ -36,33 +36,6 @@ class Lab4Spec(lab4: Lab4Like) extends FlatSpec {
     assert(strictlyOrdered(treeFromList(List(1,2))))
   }
 
-  "type test" should "return the right type" in {
-    val res_type = TNumber
-    val x = "x"
-    val start_type = empty + (x -> TNumber)
-    val start_expr = N(4.5)
-    assertResult(res_type) {
-      typeof(start_type, start_expr)
-    }
-  }
-
-  it should "return the a number from an object" in {
-    val res_type = TNumber
-    val f = "f"
-    val start_type = empty + (f -> TNumber)
-    val start_expr = GetField(Obj(Map(f -> N(3.0))),f)
-    assertResult(res_type) {
-      typeof(start_type, start_expr)
-    }
-    GetField(Obj(Map(f -> N(3.0))),f)
-  }
-
-  it should "step to the return val of an obj" in {
-    val f = "f"
-    assertResult(N(3.0)) {
-      step(GetField(Obj(Map(f -> N(3.0))),f))
-    }
-  }
 
   /***** Interpreter Tests *****/
 

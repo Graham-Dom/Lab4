@@ -8,7 +8,7 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   
   /*
    * CSCI 3155: Lab 4
-   * <Cat Johnson>
+   * <Your Name>
    * 
    * Partner: <Your Partner's Name>
    * Collaborators: <Any Collaborators>
@@ -36,54 +36,45 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   /*** Collections and Higher-Order Functions ***/
   
   /* Lists */
-
+  
   def compressRec[A](l: List[A]): List[A] = l match {
-    case Nil | _ :: Nil => l
-    case h1 :: (t1 @ (h2 :: _)) => {
-      if (h2 == h1) compressRec(t1) else {h1 :: compressRec(t1)}
-    }
+    case Nil | _ :: Nil => ???
+    case h1 :: (t1 @ (h2 :: _)) => ???
   }
-
+  
   def compressFold[A](l: List[A]): List[A] = l.foldRight(Nil: List[A]){
-    (h, acc) => acc match {
-      case Nil => h :: Nil
-      case h1 :: _ => if (h == h1) acc; else h :: acc;
-    }
+    (h, acc) => ???
   }
-
+  
   def mapFirst[A](l: List[A])(f: A => Option[A]): List[A] = l match {
-    case Nil => l
-    case h :: t => f(h) match {
-      case None => h :: mapFirst(t)(f)
-      case Some(a) => a :: t
-    }
+    case Nil => ???
+    case h :: t => ???
   }
-
+  
   /* Trees */
 
   def foldLeft[A](t: Tree)(z: A)(f: (A, Int) => A): A = {
     def loop(acc: A, t: Tree): A = t match {
-      case Empty => acc
-      case Node(l, d, r) => loop(f(loop(acc, l), d), r)
+      case Empty => ???
+      case Node(l, d, r) => ???
     }
     loop(z, t)
   }
 
+  // An example use of foldLeft
   def sum(t: Tree): Int = foldLeft(t)(0){ (acc, d) => acc + d }
 
+  // Create a tree from a list. An example use of the
+  // List.foldLeft method.
   def treeFromList(l: List[Int]): Tree =
     l.foldLeft(Empty: Tree){ (acc, i) => acc insert i }
 
   def strictlyOrdered(t: Tree): Boolean = {
     val (b, _) = foldLeft(t)((true, None: Option[Int])){
-      (acc, i) => acc match {
-        case (b1, None) =>  (b1, Some(i))
-        case (b1, Some(a)) => if (a < i) (b1, Some(a)) else (false, Some(a))
-      }
+      ???
     }
     b
   }
-
 
   /*** Rename bound variables in e ***/
 
@@ -93,40 +84,31 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
         case N(_) | B(_) | Undefined | S(_) => e
         case Print(e1) => Print(ren(env, e1))
 
-        case Unary(uop, e1) => Unary(uop, ren(env, e1))
-        case Binary(bop, e1, e2) => Binary(bop, ren(env, e1), ren(env, e2))
-        case If(e1, e2, e3) => If(ren(env, e1), ren(env, e2), ren(env, e3))
-        case Var(y) => env.get(y) match {
-          case Some(x) => Var(x)
-          case None => Var(y)
-        }
-        /* FRESH */
-        case Decl(mode, y, e1, e2) => {
+        case Unary(uop, e1) => ???
+        case Binary(bop, e1, e2) => ???
+        case If(e1, e2, e3) => ???
+
+        case Var(y) => ???
+
+        case Decl(mode, y, e1, e2) =>
           val yp = fresh(y)
-          Decl(mode, yp, ren(env, e1), ren(env+(y->yp), e2))
-        }
-        /* FRESH */
+          ???
+
         case Function(p, params, tann, e1) => {
           val (pp, envp): (Option[String], Map[String,String]) = p match {
-            case None => (None, env)
-            case Some(x) => {
-              val fv = fresh(x)
-              (Some(fv), env+(x->fv))
-            }
+            case None => ???
+            case Some(x) => ???
           }
           val (paramsp, envpp) = params.foldRight( (Nil: List[(String,MTyp)], envp) ) {
-            case ((s, mt), (pa, ea)) => {
-              val fv = fresh(s)
-              ((fv, mt)::pa, (ea+(s->fv)))
-            }
+            ???
           }
-          Function(pp, paramsp, tann, ren(envpp, e1))
+          ???
         }
-        case Call(e1, args) => Call(ren(env, e1), args.map{case arg => ren(env, arg)})
-        // should obj fields be updated by renaming?
-        // case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fKey, ren(env, fValue))})
-        case Obj(fields) => Obj(fields.map{case (fKey, fValue) => (fKey, ren(env, fValue))})
-        case GetField(e1, f) => GetField(ren(env, e1), f)
+
+        case Call(e1, args) => ???
+
+        case Obj(fields) => ???
+        case GetField(e1, f) => ???
       }
     }
     ren(empty, e)
@@ -141,125 +123,69 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     case TObj(fields) if (fields exists { case (_, t) => hasFunctionTyp(t) }) => true
     case _ => false
   }
-
+  
   def typeof(env: TEnv, e: Expr): Typ = {
     def err[T](tgot: Typ, e1: Expr): T = throw StaticTypeError(tgot, e1, e)
 
     e match {
-      /* TypePrint */
       case Print(e1) => typeof(env, e1); TUndefined
-      /* TypeNumber */
-      case N(_) => TNumber
-      /* TypeBool */
-      case B(_) => TBool
-      /* TypeUndefined */
-      case Undefined => TUndefined
-      /* TypeString */
-      case S(_) => TString
-      /* TypeVar */
-      case Var(x) => lookup(env, x)
-      /* TypeNeg */
+      case N(_) => ???
+      case B(_) => ???
+      case Undefined => ???
+      case S(_) => ???
+      case Var(x) => ???
       case Unary(Neg, e1) => typeof(env, e1) match {
         case TNumber => TNumber
         case tgot => err(tgot, e1)
       }
-      /* TypeNot */
-      case Unary(Not, e1) => typeof(env, e1) match {
-        case TBool => TBool
-        case tgot => err(tgot, e1)
-      }
-      /* TypeSeq */
-      case Binary(Seq, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (t1, t2) => t1; t2
-        case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e2)
-      }
-      /* TypeArith */
-      case Binary(Minus|Times|Div, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (TNumber, TNumber) => TNumber
-        case (TNumber, tgot) => err(tgot, e2)
-        case (tgot, _) => err(tgot, e1)
-      }
-      /* TypePlusString */
-      /* TypeInequalityString */
-      /* TypeInequalityNumber */
-      case Binary(Plus|Lt|Le|Gt|Ge, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (TString, TString) => TString
-        case (TNumber, TNumber) => TNumber
-        case (TNumber | TString, tgot) => err(tgot, e2)
-        case (tgot, _) => err(tgot, e1)
-      }
-      /* TypeEquality */
-      case Binary(Eq|Ne, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (tgot, _) if hasFunctionTyp(tgot) => err(typeof(env, e1), e1)
-        case (_, tgot) if hasFunctionTyp(tgot) => err(typeof(env, e2), e2)
-        case (t1, t2) if (t1 == t2) => TBool
-        case (t1, t2) if (t1 != t2) => err(t1, e1)
-        case (tgot, _) => err(tgot, e1)
-        case (_, tgot) => err(tgot, e2)
-      }
-      /* TypeAndOr */
-      case Binary(And|Or, e1, e2) => (typeof(env, e1), typeof(env, e2)) match {
-        case (TBool, TBool) => TBool
-        case (TBool, tgot) => err(tgot, e2)
-        case (tgot, _) => err(tgot, e1)
-      }
-      /* TypeIf */
-      case If(e1, e2, e3) => (typeof(env, e1), typeof(env, e2), typeof(env, e3)) match {
-        case (TBool, t2, t3) => if (t2 == t3) t2 else err(t3, e3)
-        case (tgot, _, _) => err(tgot, e1)
-      }
-      /* TypeDecl */
-      case Decl(_, x, e1, e2) => typeof(env+(x->typeof(env, e1)), e2)
-      /* TypeCall */
-      case Call(e1, args) => typeof(env, e1) match {
-        case TFunction(params, tret) if (params.length == args.length) =>
-          (params zip args).foreach {
-            case ((_, MTyp(_, t)), arg) => {
-              val arg_type = typeof(env, arg)
-              if (arg_type != t) err(arg_type, arg)
-            }
-          }
-          tret
-        case tgot => err(tgot, e1)
-      }
-      /* TypeObject */
-      case Obj(fields) => TObj(fields.mapValues{x => typeof(env, x)})
-      /* TypeGetField */
-      case GetField(e1, f) => typeof(env, e1) match {
-        case TObj(fields) => fields(f)
-        case tgot => err(tgot, e1)
-      }
-      /* TypeFunction */
-      /* TypeFunctionAnn */
-      /* TypeRecFunction */
+      case Unary(Not, e1) =>
+        ???
+      case Binary(Plus, e1, e2) =>
+        ???
+      case Binary(Minus|Times|Div, e1, e2) => 
+        ???
+      case Binary(Eq|Ne, e1, e2) =>
+        ???
+      case Binary(Lt|Le|Gt|Ge, e1, e2) =>
+        ???
+      case Binary(And|Or, e1, e2) =>
+        ???
+      case Binary(Seq, e1, e2) =>
+        ???
+      case If(e1, e2, e3) =>
+        ???
+
+      case Obj(fields) => ???
+      case GetField(e1, f) => ???
+
+      case Decl(m, x, e1, e2) => ???
+
       case Function(p, params, tann, e1) => {
         // Bind to env1 an environment that extends env with an appropriate binding if
         // the function is potentially recursive.
         val env1 = (p, tann) match {
-          /* TypeFunctionAnn */
-          case (None, _) => env
-          /* TypeRecFunction */
-          case (Some(x), Some(y)) => env+(x->TFunction(params, y))
+          /***** Add cases here *****/
           case _ => err(TUndefined, e1)
         }
         // Bind to env2 an environment that extends env1 with bindings for params.
-        val env2 = (params.foldLeft(env1){
-          case (acc, (s, MTyp(_, t))) => acc+(s->t)
-        })
+        val env2 = ???
         // Infer the type of the function body
-        val t1 = typeof(env2, e1)
+        val t1 = ???
         // Check with the possibly annotated return type
-        /* TypeFunctionAnn */
-        tann match {
-          case None => TFunction(params, t1)
-          case Some(t) => if (t == t1) TFunction(params, t) else err(TFunction(params, t), e1)
-        }
+        ???
+      }
+      case Call(e1, args) => typeof(env, e1) match {
+        case TFunction(params, tret) if (params.length == args.length) =>
+          (params zip args).foreach {
+            ???
+          }
+          tret
+        case tgot => err(tgot, e1)
       }
 
     }
   }
-
+  
   /*** Small-Step Interpreter ***/
 
   /*
@@ -276,29 +202,13 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
     require(isValue(v2), s"inequalityVal: v2 ${v2} is not a value")
     require(bop == Lt || bop == Le || bop == Gt || bop == Ge)
     (v1, v2) match {
-      /* DoInequalityString */
-      case (S(s1), S(s2)) => bop match {
-        case Gt => s1 > s2
-        case Ge => s1 >= s2
-        case Lt => s1 < s2
-        case Le => s1 <= s2
-      }
-      /* DoInequalityNumber */
-      case (N(n1), N(n2)) => bop match {
-        case Gt => n1 > n2
-        case Ge => n1 >= n2
-        case Lt => n1 < n2
-        case Le => n1 <= n2
-      }
+      case _ => ??? // delete this line when done
     }
   }
 
   /* This should be the same code as from Lab 3 */
   def iterate(e0: Expr)(next: (Expr, Int) => Option[Expr]): Expr = {
-    def loop(e: Expr, n: Int): Expr = (next(e, n)) match {
-      case None => e
-      case Some(e2) => loop(e2, n+1)
-    }
+    def loop(e: Expr, n: Int): Expr = ???
     loop(e0, 0)
   }
 
@@ -306,180 +216,88 @@ object Lab4 extends jsy.util.JsyApplication with Lab4Like {
   def substitute(e: Expr, esub: Expr, x: String): Expr = {
     def subst(e: Expr): Expr = e match {
       case N(_) | B(_) | Undefined | S(_) => e
-      /* DoPrint */
       case Print(e1) => Print(subst(e1))
-      case Var(y) => if (x == y) esub else e
-      /* DoNeg */
-      /* DoNot */
-      case Unary(uop, e1) => Unary(uop, subst(e1))
-      /* DoArith */
-      /* DoPlusString */
-      /* DoInequalityNumber */
-      /* DoInequalityString */
-      /* DoEquality */
-      /* DoAndTrue */
-      /* DoAndFalse */
-      /* DoOrTrue */
-      /* DoOrFalse */
-      case Binary(bop, e1, e2) => Binary(bop, subst(e1), subst(e2))
-      /* DoIfTrue */
-      /* DoIfFalse */
-      case If(e1, e2, e3) => If(subst(e1), subst(e2), subst(e3))
-      // base case.  var shadowing - x.  var y - this base case var. replace if equal.
-      /* DoDecl */
-      case Decl(mode, y, e1, e2) => if (x == y) Decl(mode, x, subst(e1), e2) else Decl(mode, y, subst(e1), subst(e2))
-      case Function(p, params, tann, e1) => p match {
-        /* DoCall */
-        case None => if (params.exists{ p => p._1 == x}) e else Function(None, params, tann, subst(e1))
-        /* DoCallRec */
-        case Some(y) => if (x == y || params.exists{ p => p._1 == x }) e else Function(Some(y), params, tann, subst(e1))
-          /* function remains the same if x is redeclared by function name or param */
-          /* otherwise recursively call substitute */
-          // else Function(Some(y), params, tann, subst(e1)
-      }
-      /* DoCall */
-      /* DoCallRec */
-      case Call(e1, args) => Call(subst(e1), args.map{arg => subst(arg)})
-      /* SearchObj */
-      case Obj(fields) => Obj(fields.map{ case (fkey, fval) => (fkey, subst(fval)) })
-      // do substitutions for object used in get field. -- is this right?  or should be just be in obj declaration?
-      // or do we sub first in get field.s
-      /* DoGetField */
-      case GetField(e1, f) => if (x == f) e else GetField(subst(e1), f)
+        /***** Cases from Lab 3 */
+      case Unary(uop, e1) => ???
+      case Binary(bop, e1, e2) => ???
+      case If(e1, e2, e3) => ???
+      case Var(y) => ???
+      case Decl(mode, y, e1, e2) => ???
+        /***** Cases needing adapting from Lab 3 */
+      case Function(p, params, tann, e1) =>
+        ???
+      case Call(e1, args) => ???
+        /***** New cases for Lab 4 */
+      case Obj(fields) => ???
+      case GetField(e1, f) => ???
     }
 
-    // 1. find free vars if they exist
-    //    (we are given helper function).
-    // 2. define 'fresh' which will update name itself (this is callback to rename)
-    // 3. rename updates vars and env with 'fresh' var and mapping from (oldVar -> freshVar)
-    // 4. curry rename with fresh.
+    val fvs = freeVars(???)
+    def fresh(x: String): String = if (???) fresh(x + "$") else x
 
-    val fvs = freeVars(e)
-    def fresh(x: String): String = if (fvs.contains(x)) fresh(x + "$") else x
-    subst(rename(e)(fresh))
+    subst(e) // change this line when you implement capture-avoidance
   }
 
-  /* ConstMode */
+  /* Check whether or not an expression is reducible given a mode. */
   def isRedex(mode: Mode, e: Expr): Boolean = mode match {
-    case MConst => !isValue(e)
-    case MName => false
+    case MConst => ???
+    case MName => ???
   }
 
   /* A small-step transition. */
   def step(e: Expr): Expr = {
     require(!isValue(e), s"step: e ${e} to step is a value")
     e match {
-      /* DoPrint */
+      /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
-      /* DoNeg */
-      case Unary(Neg, N(v1)) if isValue(N(v1)) => N(-v1)
-      /* DoNot */
-      case Unary(Not, B(v1)) if isValue(B(v1)) => B(!v1)
-      /* DoSeq */
-      case Binary(Seq, v1, e2) if isValue(v1) => v1; e2
-      case Binary(bop, v1, v2) if isValue(v1) && isValue(v2) => bop match {
-        /* DoPlusString */
-        case Plus => (v1, v2) match {
-          case (S(v1), S(v2)) => S(v1 + v2)
-          case (N(v1), N(v2)) => N(v1 + v2)
-        }
-        /* DoArith */
-        case Minus => (v1, v2) match {
-          case (N(v1), N(v2)) => N(v1 - v2)
-        }
-        case Times => (v1, v2) match {
-          case (N(v1), N(v2)) => N(v1 * v2)
-        }
-        case Div => (v1, v2) match {
-          case (N(v1), N(v2)) => N(v1 / v2)
-        }
-        /* DoInequalityNumber */
-        /* DoInequalityString */
-        case (Lt|Le|Gt|Ge) => B(inequalityVal(bop, v1, v2))
-        /* DoEquality */
-        case Eq => B(v1 == v2)
-        case Ne => B(v1 != v2)
-      }
-      case Binary(And, v1, e2) if isValue(v1) => v1 match {
-        case B(b1) => if (b1) e2 else v1
-      }
-      /* DoOrTrue */
-      /* DoOrFalse */
-      case Binary(Or, v1, e2) if isValue(v1) => v1 match {
-        case B(b1) => if (b1) v1 else e2
-      }
-      /* DoIfTrue */
-      /* DoIfFalse */
-      case If(v1, e2, e3)  if isValue(v1) => v1 match {
-        case B(b1) => if (b1) e2 else e3
-      }
-      /* DoDecl */
-      case Decl(_, x, v1, e2) if isValue(v1) => substitute(e2, v1, x)
-      /* DoCall */
-      /* DoCallRec */
-      case Call(v1, args) if isValue(v1) => v1 match {
-        case Function(p, params, _, e1) => {
-          val pazip = params zip args
-          if (pazip.forall{ case ((_, MTyp(m, _)), arg) => !isRedex(m, arg)}) {
-            val e1p = pazip.foldRight(e1) {
-              case (((s,_), arg), accBody) => substitute(accBody, arg, s)
+        /***** Cases needing adapting from Lab 3. */
+      case Unary(Neg, v1) if isValue(v1) => ???
+        /***** More cases here */
+      case Call(v1, args) if isValue(v1) =>
+        v1 match {
+          case Function(p, params, _, e1) => {
+            val pazip = params zip args
+            if (???) {
+              val e1p = pazip.foldRight(e1) {
+                ???
+              }
+              p match {
+                case None => ???
+                case Some(x1) => ???
+              }
             }
-            p match {
-              case None => e1p
-              case Some(x1) => substitute(e1p, v1, x1)
+            else {
+              val pazipp = mapFirst(pazip) {
+                ???
+              }
+              ???
             }
           }
-          else {
-            val pazipp = mapFirst(pazip.toList) {
-              case ((s, MTyp(m, t)), arg) => if (isRedex(m, arg)) Some((s, MTyp(m,t)), step(arg)) else None
-            }
-            Call(v1, pazipp.unzip._2)
-          }
+          case _ => throw StuckError(e)
         }
-        case _ => throw StuckError(e)
-      }
-      /* DoGetField */
-      case GetField(e1, f) if isValue(e1) => e1 match {
-        case Obj(fields) => fields.get(f) match {
-          case Some(x) => x
-          case None => throw StuckError(e)
-        }
-        case _ => throw StuckError(e)
-      }
+        /***** New cases for Lab 4. */
+
       /* Inductive Cases: Search Rules */
-      /* SearchUnary */
-      case Unary(uop, e1) => Unary(uop, step(e1))
-      /* SearchBinary2 */
-      case Binary(bop, e1, e2) if isValue(e1) => Binary(bop, e1, step(e2))
-      /* SearchBinary */
-      case Binary(bop, e1, e2) => Binary(bop, step(e1), e2)
-      /* SearchPrint */
       case Print(e1) => Print(step(e1))
-      /* SearchIf */
-      case If(e1, e2, e3) => If(step(e1), e2, e3)
-      /* SearchDecl */
-      case Decl(m, x, e1, e2) => if (!isRedex(m, e1)) substitute(e2, e1, x) else Decl(m, x, step(e1), e2)
-      /* SearchCall */
-      case Call(e1, e2) => Call(step(e1), e2)
-      /* TODO: SearchCall2 */
-      /* SearchObj */
-      case Obj(fields) => fields.find{case (_, fval) => !isValue(fval)} match {
-        case Some((k, vali)) if (!isValue(vali)) =>  Obj(fields + (k -> step(vali)))
-      }
-      /* SearchGetField */
-      case GetField(e1, f) => GetField(step(e1), f)
+        /***** Cases from Lab 3. */
+      case Unary(uop, e1) => ???
+        /***** More cases here */
+        /***** Cases needing adapting from Lab 3 */
+      case Call(v1 @ Function(_, _, _, _), args) => ???
+      case Call(e1, args) => ???
+        /***** New cases for Lab 4. */
+
       /* Everything else is a stuck error. Should not happen if e is well-typed.
        *
        * Tip: you might want to first develop by comment out the following line to see which
        * cases you have missing. You then uncomment this line when you are sure all the cases
        * that you have left the ones that should be stuck.
        */
-
       case _ => throw StuckError(e)
     }
   }
-
-
+  
+  
   /* External Interfaces */
   
   //this.debug = true // uncomment this if you want to print debugging information
